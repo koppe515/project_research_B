@@ -3,3 +3,5 @@ docker compose up -d --build
 
 2つのコンテナを起動しつつ外部ともポート番号で通信できるように
 NFDの自動起動とIPv6設定も含む
+
+gitも作成

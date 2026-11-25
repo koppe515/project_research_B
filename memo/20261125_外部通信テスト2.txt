@@ -1,0 +1,65 @@
+一応外部と通信できる状態にはなっているけど色々変更したい
+・とりあえずポートフォワーディングを使って双方向に通信できるようにしたい
+・コンテナはテスト用に2つ残す
+・ただ外部との通信は1つのコンテナに集中させたい
+
+yamlを変更
+
+PCのIPを確認
+powershellで (WSLは内部用)
+ipconfig
+192.168.80.22
+
+WSL側で IPv6 を無効化して待ち受け起動
+古いコンテナがあれば消す
+sudo docker rm -f wsl-
+6363番ポートを公開して起動
+sudo docker run -dit --name wsl-ndn -p 6363:6363/udp -p 6363:6363/tcp hydrokhoos/ndn-all:latest bash
+nfd.conf の IPv6 を手動で無効化（enable_v6 no）して NFD を起動
+sudo docker exec wsl-ndn bash -c 'cp /usr/local/etc/ndn/nfd.conf.sample /usr/local/etc/ndn/nfd.conf && sed -i "s/enable_v6 yes/enable_v6 no/g" /usr/local/etc/ndn/nfd.conf && nfd-start'
+基本うまくいかないのでマルチキャストも無効化
+(すぐ落ちる)
+sudo docker exec wsl-ndn bash -c '
+pkill -9 nfd 2>/dev/null
+rm -f /run/nfd/nfd.sock
+mkdir -p /run/nfd
+cp -f /usr/local/etc/ndn/nfd.conf.sample /usr/local/etc/ndn/nfd.conf
+sed -i "s/enable_v6 yes/enable_v6 no/g" /usr/local/etc/ndn/nfd.conf
+sed -i "s/mcast yes/mcast no/g" /usr/local/etc/ndn/nfd.conf
+sed -i "/ether/,/}/ s/listen yes/listen no/g" /usr/local/etc/ndn/nfd.conf
+nohup nfd > /tmp/nfd.log 2>&1 &
+sleep 2
+'
+
+パケットのループ(Duplicate Nack)を防ぐために車側とWSL側が応答する名前を分けて片方向ずつfaceを張る
+
+WSL→ラズパイ
+ラズパイ側で応答サーバー起動:
+docker exec -d ndn-main ndnpingserver /car1
+
+WSL 側から送信テスト:
+sudo docker exec wsl-ndn nfdc face create udp4://192.168.80.35:6363
+sudo docker exec wsl-ndn nfdc route add /car1 udp4://192.168.80.35:6363
+sudo docker exec wsl-ndn ndnping -c 3 /car1
+content from /car1: seq=... が3回返ってくれば成功
+
+
+ラズパイ→WSL
+WSL 側で応答サーバー起動:
+sudo docker exec -d wsl-ndn ndnpingserver /lab
+
+ラズパイ側から送信テスト
+docker exec ndn-main nfdc face create udp4://192.168.80.22:6363
+docker exec ndn-main nfdc route add /lab udp4://192.168.80.22:6363
+docker exec ndn-main ndnping -c 3 /lab
+content from /lab: seq=... が3回返ってくれば双方向通信の完成
+ルーターへ切り替えるときはPCのIPをルーターのIPに差し替える
+
+外からPCに入ってくる通信がブロックされてそう
+powershellを管理者で実行し
+New-NetFirewallRule -DisplayName "NDN UDP 6363" -Direction Inbound -Protocol UDP -LocalPort 6363 -Action Allow
+New-NetFirewallRule -DisplayName "NDN TCP 6363" -Direction Inbound -Protocol TCP -LocalPort 6363 -Action Allow
+で許可
+Set-NetFirewallRule -DisplayName "NDN*" -Profile Private
+いらなくなったら...
+Remove-NetFirewallRule -DisplayName "NDN*"

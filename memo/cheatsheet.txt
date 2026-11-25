@@ -9,17 +9,18 @@ docker compose up -d --build
 docker compose ps
 
 コンテナに入る
-docker compose exec ndn-producer bash
-docker compose exec ndn-consumer bash
+docker compose exec ndn-main bash
+docker compose exec ndn-sub bash
 
 収納
 docker compose down
 
-ndn-producerに接続
+ndn-mainに外から接続
 udp4://192.168.80.35:6363 
 tcp4://192.168.80.35:6363
 
 ndn-consumerに接続
+ここはもう使わない
 consumerもポート番号自体は6363 ポート転送を使用
 udp4://192.168.80.35:16363 
 tcp4://192.168.80.35:16363

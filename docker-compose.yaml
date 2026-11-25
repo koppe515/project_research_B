@@ -1,28 +1,25 @@
-# 2つのコンテナを別々のNFDとして動かしつつ外部とも通信
 services:
-  ndn-producer:
+  ndn-main:
     build: .
     image: my-ndn-image
-    container_name: ndn-producer
+    container_name: ndn-main
     tty: true
     working_dir: /workspace
-    ports:
-      - "6363:6363/udp"         # ← 外部からのNDN通信（UDP）をこのコンテナへ転送
-      - "6363:6363/tcp"         # ← 外部からのNDN通信（TCP）をこのコンテナへ転送
+    ports: # ポートフォワーディング
+      - "6363:6363/udp"   # 外部とのNDN通信窓口をここに集中
+      - "6363:6363/tcp"
     volumes:
       - ./workspace:/workspace
     networks:
       - ndn-network
 
-  ndn-consumer:
+  ndn-sub:
     build: .
     image: my-ndn-image
-    container_name: ndn-consumer
+    container_name: ndn-sub
     tty: true
     working_dir: /workspace
-    ports:
-      - "16363:6363/udp"        # ← 外部からconsumerに直接繋ぐ場合は別ポート(16363)で受ける
-      - "16363:6363/tcp"
+    # 外部公開（ports）は書かず、内部テスト専用にする
     volumes:
       - ./workspace:/workspace
     networks:

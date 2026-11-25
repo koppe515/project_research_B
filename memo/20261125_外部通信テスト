@@ -1,0 +1,22 @@
+ラズパイ側
+pingを起動
+docker exec -d ndn-producer ndnpingserver /hello
+
+ルートを確認
+docker exec ndn-producer nfdc route list
+
+WSL側
+IPv6 を無効化して NFD を起動する
+sudo docker exec wsl-ndn bash -c 'rm -f /run/nfd/nfd.sock; [ -f /usr/local/etc/ndn/nfd.conf ] || cp /usr/local/etc/ndn/nfd.conf.sample /usr/local/etc/ndn/nfd.conf; sed -i "s/enable_v6 yes/enable_v6 no/g" /usr/local/etc/ndn/nfd.conf; nfd-start'
+
+Face と Route を張る
+sudo docker exec wsl-ndn nfdc face create udp4://192.168.80.35:6363
+sudo docker exec wsl-ndn nfdc route add /hello udp4://192.168.80.35:6363
+
+ndnping を打つ
+sudo docker exec wsl-ndn ndnping -c 3 /hello
+
+
+とりあえずWSL->ラズパイの通信を確認できた
+反対もやろうとしたけどポート開放必要そうだから後回し
+次は制御かな...?
